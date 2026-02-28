@@ -10,7 +10,6 @@ from mlx_vlm.prompt_utils import apply_chat_template
 from mlx_vlm.trainer import Dataset, Trainer, save_adapter
 from mlx_vlm.trainer.utils import (
     apply_lora_layers,
-    find_all_linear_names,
     get_peft_model,
 )
 from mlx_vlm.utils import load, load_image_processor
@@ -113,10 +112,23 @@ def custom_print(*args, **kwargs):
 
 
 def main(args):
+
+    # dynamic resolution boundaries
+    # ~ 448x448 min resolution
+    # ~ 1000x1000 max resolution
+    custom_processor_config = {
+        "trust_remote_code": True,
+        "min_pixels": 256 * 28 * 28,
+        "max_pixels": 1280 * 28 * 28,
+    }
+
     logger.info(f"\033[32mLoading model from {args.model_path}\033[0m")
+
     model, processor = load(
-        args.model_path, processor_config={"trust_remote_code": True}
+        args.model_path,
+        processor_config=custom_processor_config,
     )
+
     config = model.config.__dict__
     image_processor = load_image_processor(args.model_path)
 
@@ -160,12 +172,27 @@ def main(args):
         model = apply_lora_layers(model, adapter_path)
 
     else:
-        logger.info("\033[32mSetting up LoRA\033[0m")
+        # we target now both modalities
+        logger.info("\033[32mSetting up LoRA for Vision and Language models\033[0m")
 
-        list_of_modules = find_all_linear_names(model.language_model)
+        target_modules = [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+            "qkv",
+            "proj",
+            "fc1",
+            "fc2",
+            "merger",
+        ]
+
         model = get_peft_model(
             model,
-            list_of_modules,
+            target_modules,
             rank=args.lora_rank,
             alpha=args.lora_alpha,
             dropout=args.lora_dropout,

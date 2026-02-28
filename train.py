@@ -20,7 +20,7 @@ class MLXArgs:
     dataset: str = MLX_DATA_DIR
     epochs: int = 5
     batch_size: int = 4
-    learning_rate: float = 1e-5
+    learning_rate: float = 1e-4
     apply_chat_template: bool = True
     output_path: str = os.path.join(OUTPUT_DIR, "adapters.safetensors")
     save_after_epoch: bool = True
@@ -29,9 +29,9 @@ class MLXArgs:
     iters: int = 1000
     steps: int = 0
     print_every: int = 10
-    lora_rank: int = 8
-    lora_alpha: float = 0.1
-    lora_dropout: float = 0.1
+    lora_rank: int = 16
+    lora_alpha: float = 32
+    lora_dropout: float = 0.05  # 0.1
     adapter_path: str | None = None
     resume_adapter_file: str | None = None
 

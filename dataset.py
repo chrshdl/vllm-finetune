@@ -19,15 +19,13 @@ def export_mlx_dataset(
     image_out_dir: str,
 ):
     """
-    Converts PDFs to images, then chunks them into higher-resolution slices
-    and writes an mlx-vlm compatible JSONL file.
+    Converts PDFs to high-resolution images and writes an mlx-vlm compatible JSONL file.
     """
     os.makedirs(image_out_dir, exist_ok=True)
 
-    # system prompt demands the rationale step first
     system_prompt = (
         "You are an expert logistics data extraction AI.\n"
-        "First, analyze the document chunks and extract the required information step-by-step. "
+        "First, analyze the document and extract the required information step-by-step. "
         "Enclose your reasoning within <rationale> and </rationale> tags. \n"
         "Then, output the extracted information into a strict JSON object that matches the following schema:\n"
         f"{schema_json}"
@@ -35,35 +33,25 @@ def export_mlx_dataset(
 
     with open(output_jsonl, "w") as f:
         for pdf_path, truth_dict in zip(pdf_paths, ground_truths):
-            images = convert_from_path(pdf_path, dpi=72)
+            images = convert_from_path(pdf_path, dpi=200)
             page_images = [img.convert("RGB") for img in images]
 
             image_paths = []
             base_name = os.path.splitext(os.path.basename(pdf_path))[0]
 
             for page_idx, img in enumerate(page_images):
-                width, height = img.size
-                num_chunks = 2
-                chunk_height = height // num_chunks
-                overlap = 50
-
-                for chunk_idx in range(num_chunks):
-                    top = max(0, chunk_idx * chunk_height - overlap)
-                    bottom = min(height, (chunk_idx + 1) * chunk_height + overlap)
-                    chunk_img = img.crop((0, top, width, bottom))
-                    chunk_path = os.path.join(
-                        image_out_dir,
-                        f"{base_name}_page{page_idx}_chunk{chunk_idx}.jpg",
-                    )
-                    chunk_img.save(chunk_path)
-                    image_paths.append(chunk_path)
+                page_path = os.path.join(
+                    image_out_dir,
+                    f"{base_name}_page{page_idx}.jpg",
+                )
+                img.save(page_path)
+                image_paths.append(page_path)
 
             user_content = [{"type": "image"} for _ in image_paths]
             user_content.append(
                 {"type": "text", "text": "Extract the bill of lading details."}
             )
 
-            # the assistant message includes the rationale and the JSON block
             assistant_text = (
                 f"<rationale>\n{truth_dict['rationale']}\n</rationale>\n\n"
                 f"```json\n{json.dumps(truth_dict['json_data'], indent=2)}\n```"
